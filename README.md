@@ -82,7 +82,7 @@ the previous session. The scoped parallel search joins every worker on failure.
 
 ## Validation
 
-`just ecosystem-test fuzzy` checks library and versioned consumer, repeated builds
+`(cd ../verification && just ecosystem-test fuzzy)` checks library and versioned consumer, repeated builds
 and race detection. Native tests cover scores, anchors, Unicode expansions and
 graphemes, all budgets, stable Top-K, persistent incremental search, cancellation,
 cross-matcher preparation compatibility and budget validation,
