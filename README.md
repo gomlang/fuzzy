@@ -82,10 +82,22 @@ the previous session. The scoped parallel search joins every worker on failure.
 
 ## Validation
 
-`(cd ../verification && just ecosystem-test fuzzy)` checks library and versioned consumer, repeated builds
+`(cd ../verification && just ecosystem-test fuzzy)` checks the library and example, repeated builds
 and race detection. Native tests cover scores, anchors, Unicode expansions and
 graphemes, all budgets, stable Top-K, persistent incremental search, cancellation,
 cross-matcher preparation compatibility and budget validation,
 parallel equivalence, and 1,270 exhaustive short-input comparisons against an
-independent recursive subsequence enumerator. The consumer demonstrates file
+independent recursive subsequence enumerator. The example demonstrates file
 search and query refinement. No Python or native adapter is required.
+
+## Development and examples
+
+Requires GoML 0.1.55 or newer. The `examples/basic/` example shares the root manifest. From the library root, run:
+
+```sh
+goml run --example basic
+goml test
+goml verify --timeout 300s
+```
+
+`goml test` builds the example and runs its tests. `goml verify` repeats the example checks as an independent module against an isolated registry snapshot. `(cd ../verification && just ecosystem-test fuzzy)` also retains the library-specific smoke and compatibility checks.

@@ -1,5 +1,0 @@
-[module]
-path = "consumer::fuzzy"
-
-[dependencies]
-"ecosystem::fuzzy" = "0.1.0"

@@ -1,6 +1,6 @@
 package tests;
 
-use consumer::fuzzy as app;
+use ecosystem::fuzzy::examples::basic as app;
 
 #[test]
 fn versioned_file_picker() -> () {
