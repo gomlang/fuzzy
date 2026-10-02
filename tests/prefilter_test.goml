@@ -1,0 +1,62 @@
+package tests;
+
+use ecosystem::fuzzy;
+use std::context;
+use std::testing;
+
+#[test]
+fn impossible_subsequences_do_not_spend_matrix_budget() -> () {
+    let matcher = testing::expect_ok(
+        fuzzy::Matcher::new(fuzzy::Options { max_cells: 1, ..fuzzy::Options::new() }),
+        "matcher",
+    );
+    for kind in[
+        fuzzy::MatchKind::Fuzzy,
+        fuzzy::MatchKind::Substring,
+        fuzzy::MatchKind::Prefix,
+        fuzzy::MatchKind::Suffix,
+        fuzzy::MatchKind::Exact,
+    ] {
+        testing::assert(
+            testing::expect_ok(
+                matcher.find_with("az", "ab", kind, context::Context::background()),
+                "impossible",
+            ).is_none(),
+        );
+        testing::assert_eq(
+            testing::expect_err(
+                matcher.find_with("ab", "ab", kind, context::Context::background()),
+                "possible still bounded",
+            ),
+            fuzzy::Error::WorkLimit,
+        );
+    }
+    testing::assert(testing::expect_ok(matcher.find("ba", "ab"), "order matters").is_none());
+    testing::assert(
+        testing::expect_ok(matcher.find("aaa", "aab"), "multiplicity matters").is_none(),
+    );
+    testing::assert_eq(
+        testing::expect_err(matcher.find("ss", "ß"), "fold expansion remains eligible"),
+        fuzzy::Error::WorkLimit,
+    );
+}
+
+#[test]
+fn search_and_parallel_search_skip_impossible_oversized_matrices() -> () {
+    let matcher = testing::expect_ok(
+        fuzzy::Matcher::new(fuzzy::Options { max_cells: 4, ..fuzzy::Options::new() }),
+        "matcher",
+    );
+    let values = Vec::from_array(["xxxxxxxxxx", "ab", "zyzyzyzyzy", "ab"]);
+    let ctx = context::Context::background();
+    let serial = testing::expect_ok(matcher.search("ab", values, 10, ctx), "serial");
+    let parallel = testing::expect_ok(matcher.search_parallel("ab", values, 10, 3, ctx), "parallel");
+    testing::assert_eq(serial.total, 2);
+    testing::assert_eq(serial.scanned, 4);
+    testing::assert_eq(parallel.total, serial.total);
+    for index in 0..2 {
+        testing::assert_eq(serial.hits[index].index, 1 + index * 2);
+        testing::assert_eq(parallel.hits[index].index, serial.hits[index].index);
+        testing::assert_eq(parallel.hits[index].matched.score, serial.hits[index].matched.score);
+    }
+}

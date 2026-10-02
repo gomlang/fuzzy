@@ -1,8 +1,21 @@
 package tests;
 
+use ecosystem::fuzzy;
+use std::testing;
 use ecosystem::fuzzy::examples::basic as app;
 
 #[test]
 fn versioned_file_picker() -> () {
     app::exercise();
+}
+
+#[test]
+fn impossible_match_respects_public_preparation_and_work_limits() -> () {
+    let matcher = testing::expect_ok(
+        fuzzy::Matcher::new(fuzzy::Options { max_cells: 1, ..fuzzy::Options::new() }),
+        "matcher",
+    );
+    testing::assert(
+        testing::expect_ok(matcher.find("missing", "xxxxxxxxxxxxxxxx"), "no match").is_none(),
+    );
 }
