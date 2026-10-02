@@ -16,7 +16,7 @@ fn found(query: string, source: string) -> fuzzy::Match {
 #[test]
 fn contiguous_matches_and_path_boundaries_rank_first() -> () {
     testing::assert(found("abc", "abc").score > found("abc", "a_b_c").score);
-    testing::assert(found("file", "src/file.gom").score > found("file", "src/profile.gom").score);
+    testing::assert(found("file", "src/file.goml").score > found("file", "src/profile.goml").score);
     testing::assert(found("fb", "FooBar").score > found("fb", "foobaz").score);
     testing::assert_eq(found("abc", "abc").score, 76);
     testing::assert(testing::expect_ok(matcher().find("acb", "abc"), "missing").is_none());
@@ -190,7 +190,7 @@ fn smart_case_transition_and_mutable_input_do_not_corrupt_sessions() -> () {
 fn parallel_search_matches_serial_scores_indices_and_highlights() -> () {
     let values = Vec::new();
     for index in 0..240 {
-        values.push("src/" + index.to_string() + "/fuzzy_match.gom");
+        values.push("src/" + index.to_string() + "/fuzzy_match.goml");
     }
     let ctx = context::Context::background();
     let serial = testing::expect_ok(matcher().search("fm", values, 25, ctx), "serial");
