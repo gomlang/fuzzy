@@ -107,3 +107,11 @@ feasibility scan over the prepared case-sensitive or folded units. Impossible
 candidates return `None` even when their potential matrix exceeds `max_cells`.
 Candidates passing that scan still obey the matrix budget and retain the same
 scores and tie rules. The scan checks cancellation every 1,024 units.
+
+Top-K retention uses a bounded worst-first heap: each admitted/replaced hit takes
+O(log K) work instead of shifting O(K) entries. Only the final retained hits are
+sorted, in O(K log K), by descending score then original candidate index. Equal
+scores therefore keep stable input order. Zero-limit searches still count all
+matches without retaining hits; limits above the corpus size return every match.
+Parallel workers use the same bounded policy and their merge preserves serial
+ordering. The change does not alter scoring or corpus preparation limits.

@@ -21,23 +21,50 @@ fn retain(hits: Vec[Hit], hit: Hit, limit: isize) -> () {
     if limit == 0 {
         return;
     }
-    if hits.len() == limit && rank(hit, hits[limit - 1]) >= 0 {
+    if hits.len() < limit {
+        hits.push(hit);
+        let mut at = hits.len() - 1;
+        while at > 0 {
+            let parent = (at - 1) / 2;
+            if rank(hits[at], hits[parent]) <= 0 {
+                break;
+            }
+            let value = hits[parent];
+            hits[parent] = hits[at];
+            hits[at] = value;
+            at = parent;
+        }
         return;
     }
-    let mut low = 0;
-    let mut high = hits.len();
-    while low < high {
-        let mid = low + (high - low) / 2;
-        if rank(hit, hits[mid]) < 0 {
-            high = mid;
-        } else {
-            low = mid + 1;
+    if rank(hit, hits[0]) >= 0 {
+        return;
+    }
+    hits[0] = hit;
+    let mut at = 0;
+    loop {
+        let left = at * 2 + 1;
+        if left >= hits.len() {
+            break;
         }
+        let right = left + 1;
+        let child = if right < hits.len() && rank(hits[right], hits[left]) > 0 {
+            right
+        } else {
+            left
+        };
+        if rank(hits[at], hits[child]) >= 0 {
+            break;
+        }
+        let value = hits[at];
+        hits[at] = hits[child];
+        hits[child] = value;
+        at = child;
     }
-    hits.insert(low, hit);
-    if hits.len() > limit {
-        hits.truncate(limit);
-    }
+}
+
+fn ranked(hits: Vec[Hit]) -> Vec[Hit] {
+    hits.sort_by(|left, right| rank(left, right));
+    hits
 }
 
 impl Matcher {
@@ -117,6 +144,8 @@ impl Matcher {
                     }
                 }
                 check_context(ctx)?;
+                let hits = ranked(hits);
+                check_context(ctx)?;
                 Result::Ok(Report { hits, total, scanned })
             },
         )
@@ -185,6 +214,8 @@ impl Session {
                 retain(hits, Hit { index, text: candidate.value, matched }, limit);
             }
         }
+        check_context(ctx)?;
+        let hits = ranked(hits);
         check_context(ctx)?;
         let report = Report { hits, total: eligible.len(), scanned: indices.len() };
         Result::Ok(
