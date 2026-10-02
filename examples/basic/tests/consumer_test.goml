@@ -2,6 +2,7 @@ package tests;
 
 use ecosystem::fuzzy;
 use std::testing;
+use std::context;
 use ecosystem::fuzzy::examples::basic as app;
 
 #[test]
@@ -18,4 +19,15 @@ fn impossible_match_respects_public_preparation_and_work_limits() -> () {
     testing::assert(
         testing::expect_ok(matcher.find("missing", "xxxxxxxxxxxxxxxx"), "no match").is_none(),
     );
+}
+
+#[test]
+fn public_topk_returns_stable_score_order() -> () {
+    let matcher = testing::expect_ok(fuzzy::Matcher::new(fuzzy::Options::new()), "matcher");
+    let result = testing::expect_ok(
+        matcher.search("a", Vec::from_array(["zzza", "a", "a"]), 2, context::Context::background()),
+        "topk",
+    );
+    testing::assert_eq(result.hits[0].index, 1);
+    testing::assert_eq(result.hits[1].index, 2);
 }

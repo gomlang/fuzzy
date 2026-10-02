@@ -1,0 +1,39 @@
+package fuzzy;
+
+use std::testing;
+use std::time;
+
+#[test]
+fn heap_retention_matches_insertion_under_repeated_best_hits() -> () {
+    let inputs = Vec::new();
+    for index in 0..8192 {
+        inputs.push(
+            Hit {
+                index,
+                text: "",
+                matched: Match { score: index, ranges: Vec::new(), graphemes: Vec::new() },
+            },
+        );
+    }
+    let old = Vec::new();
+    let started = time::Instant::now();
+    for hit in inputs {
+        old.insert(0, hit);
+        if old.len() > 512 {
+            old.truncate(512);
+        }
+    }
+    let insertion_ns = started.elapsed().as_nanoseconds();
+    let heap = Vec::new();
+    let started = time::Instant::now();
+    for hit in inputs {
+        retain(heap, hit, 512);
+    }
+    let ordered = ranked(heap);
+    let heap_ns = started.elapsed().as_nanoseconds();
+    testing::assert_eq(ordered.len(), 512);
+    for index in 0..ordered.len() {
+        testing::assert_eq(ordered[index].index, old[index].index);
+    }
+    println(f"top-K 8192 candidates / K=512: insertion={insertion_ns}ns heap={heap_ns}ns");
+}

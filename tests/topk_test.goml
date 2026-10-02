@@ -1,0 +1,89 @@
+package tests;
+
+use ecosystem::fuzzy;
+use std::context;
+use std::testing;
+
+#[test]
+fn heap_topk_matches_independent_full_sort_for_all_limits() -> () {
+    let matcher = testing::expect_ok(fuzzy::Matcher::new(fuzzy::Options::new()), "matcher");
+    let values = Vec::new();
+    for prefix in["long/prefix/", "xx", "", "z", "path/", "___"] {
+        for suffix in["abc", "a_b_c", "ABC", "abcabc", "xyz", "ab-c"] {
+            values.push(prefix + suffix);
+        }
+    }
+    for _ in 0..5 {
+        values.push("abc");
+    }
+    let expected = Vec::new();
+    for index in 0..values.len() {
+        if let Some(matched) = testing::expect_ok(matcher.find("abc", values[index]), "match") {
+            expected.push((matched.score, index));
+        }
+    }
+    expected.sort_by(
+        |a, b| if a.0 > b.0 {
+            -1
+        } else if a.0 < b.0 {
+            1
+        } else {
+            a.1 - b.1
+        },
+    );
+    for limit in[0, 1, 2, 7, 20, 100] {
+        let serial = testing::expect_ok(
+            matcher.search("abc", values, limit, context::Context::background()),
+            "serial",
+        );
+        let parallel = testing::expect_ok(
+            matcher.search_parallel("abc", values, limit, 4, context::Context::background()),
+            "parallel",
+        );
+        let count = if limit < expected.len() {
+            limit
+        } else {
+            expected.len()
+        };
+        testing::assert_eq(serial.total, expected.len());
+        testing::assert_eq(serial.scanned, values.len());
+        testing::assert_eq(serial.hits.len(), count);
+        testing::assert_eq(parallel.hits.len(), count);
+        for index in 0..count {
+            testing::assert_eq(serial.hits[index].index, expected[index].1);
+            testing::assert_eq(serial.hits[index].matched.score, expected[index].0);
+            testing::assert_eq(parallel.hits[index].index, serial.hits[index].index);
+            testing::assert(
+                parallel.hits[index].matched.ranges == serial.hits[index].matched.ranges,
+            );
+        }
+    }
+}
+
+#[test]
+fn incremental_and_empty_query_heaps_preserve_stable_ties() -> () {
+    let matcher = testing::expect_ok(fuzzy::Matcher::new(fuzzy::Options::new()), "matcher");
+    let values = Vec::from_array(["abc", "abc", "abc", "zzz", "ab"]);
+    let session = testing::expect_ok(fuzzy::Session::new(matcher, values), "session");
+    let (session, all) = testing::expect_ok(
+        session.update("", 3, context::Context::background()),
+        "empty pattern",
+    );
+    for index in 0..3 {
+        testing::assert_eq(all.hits[index].index, index);
+    }
+    let (_, narrowed) = testing::expect_ok(
+        session.update("abc", 2, context::Context::background()),
+        "narrowed",
+    );
+    testing::assert_eq(narrowed.total, 3);
+    testing::assert_eq(narrowed.hits[0].index, 0);
+    testing::assert_eq(narrowed.hits[1].index, 1);
+    testing::assert_eq(
+        testing::expect_ok(
+            matcher.search("a", Vec::new(), 5, context::Context::background()),
+            "empty corpus",
+        ).hits.len(),
+        0,
+    );
+}
