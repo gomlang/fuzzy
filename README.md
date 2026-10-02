@@ -101,3 +101,9 @@ goml verify --timeout 300s
 ```
 
 `goml test` builds the example and runs its tests. `goml verify` repeats the example checks as an independent module against an isolated registry snapshot. `(cd ../verification && just ecosystem-test fuzzy)` also retains the library-specific smoke and compatibility checks.
+
+Before allocating its scoring matrix, matching performs a linear subsequence
+feasibility scan over the prepared case-sensitive or folded units. Impossible
+candidates return `None` even when their potential matrix exceeds `max_cells`.
+Candidates passing that scan still obey the matrix budget and retain the same
+scores and tie rules. The scan checks cancellation every 1,024 units.

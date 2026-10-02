@@ -191,6 +191,21 @@ impl Matcher {
         if rows > columns || (pattern.kind == MatchKind::Exact && rows != columns) {
             return Result::Ok(Option::None);
         }
+        let mut matched_units = 0;
+        for column in 0..columns {
+            if column % 1024 == 0 {
+                check_context(ctx)?;
+            }
+            if pattern.units[matched_units] == source[column].value {
+                matched_units += 1;
+                if matched_units == rows {
+                    break;
+                }
+            }
+        }
+        if matched_units != rows {
+            return Result::Ok(Option::None);
+        }
         if columns > self.options.max_cells / rows {
             return Result::Err(Error::WorkLimit);
         }
