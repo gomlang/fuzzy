@@ -75,12 +75,23 @@ impl Matcher {
         limit: isize,
         ctx: context::Context,
     ) -> Result[Report, Error] {
+        self.search_with(query, values, MatchKind::Fuzzy, limit, ctx)
+    }
+
+    pub fn search_with(
+        self: Matcher,
+        query: string,
+        values: Vec[string],
+        kind: MatchKind,
+        limit: isize,
+        ctx: context::Context,
+    ) -> Result[Report, Error] {
         if limit < 0 || limit > self.options.max_results {
             return Result::Err(Error::InvalidLimit);
         }
         check_context(ctx)?;
         let session = Session::new_with(self, values, ctx)?;
-        let (_, report) = session.update(query, limit, ctx)?;
+        let (_, report) = session.update_with(query, kind, limit, ctx)?;
         Result::Ok(report)
     }
 
@@ -92,11 +103,23 @@ impl Matcher {
         workers: isize,
         ctx: context::Context,
     ) -> Result[Report, Error] {
+        self.search_parallel_with(query, values, MatchKind::Fuzzy, limit, workers, ctx)
+    }
+
+    pub fn search_parallel_with(
+        self: Matcher,
+        query: string,
+        values: Vec[string],
+        kind: MatchKind,
+        limit: isize,
+        workers: isize,
+        ctx: context::Context,
+    ) -> Result[Report, Error] {
         if limit < 0 || limit > self.options.max_results || workers < 1 || workers > 256 {
             return Result::Err(Error::InvalidLimit);
         }
         check_context(ctx)?;
-        let pattern = self.pattern(query, MatchKind::Fuzzy)?;
+        let pattern = self.pattern(query, kind)?;
         let inputs = values.copy();
         task::scope(
             |scope| {
@@ -187,13 +210,28 @@ impl Session {
         (Session, Report),
         Error,
     ] {
+        self.update_with(query, MatchKind::Fuzzy, limit, ctx)
+    }
+
+    pub fn update_with(
+        self: Session,
+        query: string,
+        kind: MatchKind,
+        limit: isize,
+        ctx: context::Context,
+    ) -> Result[(Session, Report), Error] {
         if limit < 0 || limit > self.matcher.options.max_results {
             return Result::Err(Error::InvalidLimit);
         }
         check_context(ctx)?;
-        let pattern = self.matcher.pattern(query, MatchKind::Fuzzy)?;
+        let pattern = self.matcher.pattern(query, kind)?;
         let narrow = match self.query {
-            Some(old) => pattern.sensitive == old.sensitive && query.starts_with(old.value),
+            Some(old) => pattern.sensitive == old.sensitive && pattern.kind == old.kind
+                && match kind {
+                    Fuzzy | Substring | Prefix => query.starts_with(old.value),
+                    Suffix => query.ends_with(old.value),
+                    Exact => query == old.value,
+                },
             None => false,
         };
         let indices = if narrow {

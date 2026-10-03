@@ -1,0 +1,36 @@
+package tests;
+
+use ecosystem::fuzzy;
+use std::context;
+use std::testing;
+
+#[test]
+fn consumer_switches_filename_suffix_and_exact_modes_without_losing_candidates() -> () {
+    let matcher = testing::expect_ok(fuzzy::Matcher::new(fuzzy::Options::new()), "matcher");
+    let values = Vec::from_array(["src/main.go", "doc/main.md", "main.go", "README"]);
+    let session = testing::expect_ok(fuzzy::Session::new(matcher, values), "session");
+    let (session, suffix) = testing::expect_ok(
+        session.update_with(".go", fuzzy::MatchKind::Suffix, 10, context::Context::background()),
+        "suffix",
+    );
+    testing::assert_eq(suffix.total, 2);
+    let (_, exact) = testing::expect_ok(
+        session.update_with("README", fuzzy::MatchKind::Exact, 10, context::Context::background()),
+        "exact switch",
+    );
+    testing::assert_eq(exact.total, 1);
+    testing::assert_eq(exact.hits[0].index, 3);
+    let parallel = testing::expect_ok(
+        matcher.search_parallel_with(
+            "main",
+            values,
+            fuzzy::MatchKind::Prefix,
+            10,
+            2,
+            context::Context::background(),
+        ),
+        "prefix parallel",
+    );
+    testing::assert_eq(parallel.total, 1);
+    testing::assert_eq(parallel.hits[0].text, "main.go");
+}

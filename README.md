@@ -115,3 +115,20 @@ scores therefore keep stable input order. Zero-limit searches still count all
 matches without retaining hits; limits above the corpus size return every match.
 Parallel workers use the same bounded policy and their merge preserves serial
 ordering. The change does not alter scoring or corpus preparation limits.
+
+### Collection match modes
+
+`search_with(query, values, kind, limit, context)` and
+`search_parallel_with(query, values, kind, limit, workers, context)` accept every
+`MatchKind`, using the same scoring, highlights, stable input-index ties, Top-K
+limits and cancellation rules as single-candidate `find_with`. The existing
+`search` and `search_parallel` remain fuzzy by default.
+
+`Session.update_with(query, kind, limit, context)` selects the mode for a query
+without preparing the corpus again. Persistent branches and failed updates leave
+older sessions usable. A mode or smart-case change scans all candidates. With
+unchanged mode and case policy, fuzzy/substring/prefix queries can reuse eligible
+candidates when text is appended; suffix queries can reuse them when text is
+prepended; exact queries can reuse them only when unchanged. Backspacing or other
+changes rescan the corpus. `update` always selects fuzzy mode, including after an
+`update_with` call. Limit zero retains the complete eligibility set.
