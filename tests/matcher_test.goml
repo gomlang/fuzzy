@@ -99,6 +99,42 @@ fn highlights_merge_adjacent_clusters_but_keep_gaps() -> () {
 }
 
 #[test]
+fn fuzzy_trace_preserves_large_candidate_offsets() -> () {
+    let offset = 65536;
+    let wide = testing::expect_ok(
+        fuzzy::Matcher::new(fuzzy::Options { max_units: offset + 3, ..fuzzy::Options::new() }),
+        "wide candidate",
+    );
+    for (suffix, score, ranges, graphemes) in[
+        (
+            "ab",
+            40 - offset,
+            Vec::from_array([fuzzy::Range { start: offset, end: offset + 2 }]),
+            Vec::from_array([offset, offset + 1]),
+        ),
+        (
+            "axb",
+            28 - offset,
+            Vec::from_array(
+                [
+                    fuzzy::Range { start: offset, end: offset + 1 },
+                    fuzzy::Range { start: offset + 2, end: offset + 3 },
+                ],
+            ),
+            Vec::from_array([offset, offset + 2]),
+        ),
+    ] {
+        let matched = testing::expect_some(
+            testing::expect_ok(wide.find("ab", "x".repeat(offset) + suffix), "wide match"),
+            "found",
+        );
+        testing::assert_eq(matched.score, score);
+        testing::assert(matched.ranges == ranges);
+        testing::assert(matched.graphemes == graphemes);
+    }
+}
+
+#[test]
 fn work_input_and_output_budgets_are_explicit_errors() -> () {
     testing::assert_err(
         fuzzy::Matcher::new(fuzzy::Options { max_cells: 0, ..fuzzy::Options::new() }),

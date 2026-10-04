@@ -72,7 +72,9 @@ for a candidate already excluded by the previous query.
 Options validate input byte/unit counts, pattern size, matrix cells and result
 count. The defaults are 1 MiB per string, 32,768 normalized candidate scalars,
 256 pattern scalars, 2,097,152 DP cells and 10,000 results. Fuzzy matching uses O(MN)
-time and parent storage, plus two O(N) score rows. Top-K uses a bounded heap,
+time and parent storage, plus two O(N) score rows. Parent indices use four bytes
+per cell: the supported maximum of 1,048,576 candidate units fits in a signed
+32-bit index. Scores retain their full integer width. Top-K uses a bounded heap,
 with O(log K) insertion cost. Sessions retain O(total candidate size) preprocessing.
 Matrix budget exhaustion is an error, never a silently degraded match.
 Prefix, suffix and exact matches evaluate their fixed alignment directly after

@@ -41,7 +41,7 @@ fn insensitive(mode: CaseMode, pattern: string) -> bool {
     true
 }
 
-fn filled(size: isize, value: isize) -> Vec[isize] {
+fn filled[T](size: isize, value: T) -> Vec[T] {
     let output = Vec::with_capacity(size);
     for _ in 0..size {
         output.push(value);
@@ -317,7 +317,7 @@ impl Matcher {
         if pattern.kind == MatchKind::Substring {
             return substring_match(pattern, source, ctx);
         }
-        let parents = filled(rows * columns, -1);
+        let parents: Vec[i32] = filled(rows * columns, -1);
         let mut previous = filled(columns, MISSING);
         let mut current = filled(columns, MISSING);
         for row in 0..rows {
@@ -361,7 +361,7 @@ impl Matcher {
                     }
                     if parent >= 0 {
                         current[column] = score + reward;
-                        parents[row * columns + column] = parent;
+                        parents[row * columns + column] = parent.to_i32();
                     }
                 }
             }
@@ -392,7 +392,7 @@ impl Matcher {
         let mut row = rows - 1;
         while row >= 0 {
             chosen.push(source[end]);
-            end = parents[row * columns + end];
+            end = parents[row * columns + end].to_isize();
             row -= 1;
         }
         chosen.reverse();
