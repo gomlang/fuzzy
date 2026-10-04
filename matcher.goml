@@ -326,19 +326,21 @@ impl Matcher {
         if pattern.kind == MatchKind::Substring {
             return substring_match(pattern, source, ctx);
         }
-        let parents: Vec[i32] = filled(rows * columns, -1);
+        let width = columns - rows + 1;
+        let parents: Vec[i32] = filled(rows * width, -1);
         let mut previous = filled(columns, MISSING);
         let mut current = filled(columns, MISSING);
         for row in 0..rows {
             check_context(ctx)?;
+            let trace_offset = row * (width - 1);
             let mut best_gap = MISSING;
             let mut best_parent = -1;
-            for column in 0..columns {
+            for column in row..(row + width) {
                 if column % 1024 == 0 {
                     check_context(ctx)?;
                 }
                 current[column] = MISSING;
-                if row > 0 && column >= 2 && previous[column - 2] != MISSING {
+                if row > 0 && column > row && previous[column - 2] != MISSING {
                     let score = previous[column - 2] + column - 2;
                     if score > best_gap {
                         best_gap = score;
@@ -370,7 +372,7 @@ impl Matcher {
                     }
                     if parent >= 0 {
                         current[column] = score + reward;
-                        parents[row * columns + column] = parent.to_i32();
+                        parents[trace_offset + column] = parent.to_i32();
                     }
                 }
             }
@@ -380,7 +382,7 @@ impl Matcher {
         }
         let mut best = MISSING;
         let mut end = -1;
-        for column in 0..columns {
+        for column in(rows - 1)..columns {
             if previous[column] == MISSING {
                 continue;
             }
@@ -401,7 +403,7 @@ impl Matcher {
         let mut row = rows - 1;
         while row >= 0 {
             chosen.push(source[end]);
-            end = parents[row * columns + end].to_isize();
+            end = parents[row * (width - 1) + end].to_isize();
             row -= 1;
         }
         chosen.reverse();

@@ -71,9 +71,12 @@ for a candidate already excluded by the previous query.
 
 Options validate input byte/unit counts, pattern size, matrix cells and result
 count. The defaults are 1 MiB per string, 32,768 normalized candidate scalars,
-256 pattern scalars, 2,097,152 DP cells and 10,000 results. Fuzzy matching uses O(MN)
-time and parent storage, plus two O(N) score rows. Parent indices use four bytes
-per cell: the supported maximum of 1,048,576 candidate units fits in a signed
+256 pattern scalars, 2,097,152 DP cells and 10,000 results. For a feasible nonempty
+pattern of M scalars and a candidate of N scalars, fuzzy matching evaluates only
+positions that leave enough space for the other pattern scalars. It uses
+O(N + M(N-M+1)) time, M(N-M+1) parent cells and two O(N) score rows. The admission
+budget still checks the full M×N rectangle. Parent indices use four bytes per
+cell: the supported maximum of 1,048,576 candidate units fits in a signed
 32-bit index. Scores retain their full integer width. Top-K uses a bounded heap,
 with O(log K) insertion cost. Sessions retain O(total candidate size) preprocessing.
 Preparation rejects an excessive original scalar count before allocating grapheme

@@ -379,6 +379,35 @@ fn dynamic_programming_agrees_with_exhaustive_subsequence_enumeration() -> () {
 }
 
 #[test]
+fn fuzzy_trace_ignores_incomplete_prefixes() -> () {
+    let late = found("abcd", "xaxd" + "x".repeat(128) + "abcd");
+    testing::assert_eq(late.score, -44);
+    testing::assert(late.ranges == Vec::from_array([fuzzy::Range { start: 132, end: 136 }]));
+    testing::assert(late.graphemes == Vec::from_array([132, 133, 134, 135]));
+    let gap = found("abc", "ab" + "x".repeat(128) + "c");
+    testing::assert_eq(gap.score, -63);
+    testing::assert(
+        gap.ranges
+            == Vec::from_array(
+                [fuzzy::Range { start: 0, end: 2 }, fuzzy::Range { start: 130, end: 131 }],
+            ),
+    );
+    testing::assert(gap.graphemes == Vec::from_array([0, 1, 130]));
+}
+
+#[test]
+fn exact_length_fuzzy_alignment_keeps_rectangular_admission_budget() -> () {
+    let limited = testing::expect_ok(
+        fuzzy::Matcher::new(fuzzy::Options { max_cells: 8, ..fuzzy::Options::new() }),
+        "matrix budget",
+    );
+    testing::assert_eq(
+        testing::expect_err(limited.find("abc", "abc"), "original rectangular budget"),
+        fuzzy::Error::WorkLimit,
+    );
+}
+
+#[test]
 fn prepared_inputs_recheck_receiver_byte_budgets_before_early_returns() -> () {
     let donor = matcher();
     let limited = testing::expect_ok(
