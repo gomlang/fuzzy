@@ -63,6 +63,9 @@ matching candidates are scanned. All eligible candidates are retained regardless
 of the previous Top-K limit. Backspacing, replacement and smart-case transitions
 rescan the index. Sessions have no mutable shared cache and can branch or be
 queried concurrently.
+The matrix admission budget applies only to candidates actually scanned. A
+narrowed update can therefore succeed where a fresh search returns `WorkLimit`
+for a candidate already excluded by the previous query.
 
 ## Bounds and errors
 
