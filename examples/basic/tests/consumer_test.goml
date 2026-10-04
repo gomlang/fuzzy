@@ -46,3 +46,28 @@ fn anchored_matches_preserve_folded_grapheme_highlights() -> () {
     testing::assert(found.ranges == Vec::from_array([fuzzy::Range { start: 0, end: 2 }]));
     testing::assert(found.graphemes == Vec::from_array([0]));
 }
+
+#[test]
+fn substring_search_keeps_boundary_scores_and_earliest_ties() -> () {
+    let matcher = testing::expect_ok(fuzzy::Matcher::new(fuzzy::Options::new()), "matcher");
+    let ctx = context::Context::background();
+    let found = testing::expect_some(
+        testing::expect_ok(
+            matcher.find_with("ab", "xabab/ab", fuzzy::MatchKind::Substring, ctx),
+            "substring",
+        ),
+        "matching substring",
+    );
+    testing::assert_eq(found.score, 48);
+    testing::assert(found.ranges == Vec::from_array([fuzzy::Range { start: 6, end: 8 }]));
+    let tied = testing::expect_some(
+        testing::expect_ok(
+            matcher.find_with("x", "xa/xa", fuzzy::MatchKind::Substring, ctx),
+            "tied substring",
+        ),
+        "matching tie",
+    );
+    testing::assert_eq(tied.score, 27);
+    testing::assert(found.graphemes == Vec::from_array([6, 7]));
+    testing::assert(tied.ranges == Vec::from_array([fuzzy::Range { start: 0, end: 1 }]));
+}

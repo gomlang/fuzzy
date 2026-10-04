@@ -49,6 +49,23 @@ fn filled(size: isize, value: isize) -> Vec[isize] {
     output
 }
 
+fn contiguous_match(source: Vec[Unit], start: isize, count: isize, score: isize) -> Match {
+    let graphemes = Vec::new();
+    for row in 0..count {
+        let unit = source[start + row];
+        if graphemes.last() != Option::Some(unit.grapheme) {
+            graphemes.push(unit.grapheme);
+        }
+    }
+    Match {
+        score,
+        ranges: Vec::from_array(
+            [Range { start: source[start].start, end: source[start + count - 1].end }],
+        ),
+        graphemes,
+    }
+}
+
 fn anchored_match(pattern: Pattern, source: Vec[Unit], ctx: context::Context) -> Result[
     Option[Match],
     Error,
@@ -60,7 +77,6 @@ fn anchored_match(pattern: Pattern, source: Vec[Unit], ctx: context::Context) ->
         0
     };
     let mut score = -start - (source.len() - start - count) / 4;
-    let graphemes = Vec::new();
     for row in 0..count {
         if row % 1024 == 0 {
             check_context(ctx)?;
@@ -73,22 +89,65 @@ fn anchored_match(pattern: Pattern, source: Vec[Unit], ctx: context::Context) ->
         if row > 0 {
             score += 8;
         }
-        if graphemes.last() != Option::Some(unit.grapheme) {
-            graphemes.push(unit.grapheme);
+    }
+    check_context(ctx)?;
+    Result::Ok(Option::Some(contiguous_match(source, start, count, score)))
+}
+
+fn substring_match(pattern: Pattern, source: Vec[Unit], ctx: context::Context) -> Result[
+    Option[Match],
+    Error,
+] {
+    let count = pattern.units.len();
+    let fallback = filled(count, 0);
+    let mut matched = 0;
+    for index in 1..count {
+        if index % 1024 == 0 {
+            check_context(ctx)?;
+        }
+        while matched > 0 && pattern.units[matched] != pattern.units[index] {
+            matched = fallback[matched - 1];
+        }
+        if pattern.units[matched] == pattern.units[index] {
+            matched += 1;
+        }
+        fallback[index] = matched;
+    }
+    matched = 0;
+    let mut bonus = 0;
+    let mut best = MISSING;
+    let mut best_start = -1;
+    for column in 0..source.len() {
+        if column % 1024 == 0 {
+            check_context(ctx)?;
+        }
+        bonus += source[column].bonus;
+        if column >= count {
+            bonus -= source[column - count].bonus;
+        }
+        while matched > 0 && pattern.units[matched] != source[column].value {
+            matched = fallback[matched - 1];
+        }
+        if pattern.units[matched] == source[column].value {
+            matched += 1;
+        }
+        if matched == count {
+            let start = column - count + 1;
+            let score = 16 * count + 8 * (count - 1) + bonus - start
+                - (source.len() - column - 1) / 4;
+            if score > best {
+                best = score;
+                best_start = start;
+            }
+            matched = fallback[count - 1];
         }
     }
     check_context(ctx)?;
-    Result::Ok(
-        Option::Some(
-            Match {
-                score,
-                ranges: Vec::from_array(
-                    [Range { start: source[start].start, end: source[start + count - 1].end }],
-                ),
-                graphemes,
-            },
-        ),
-    )
+    if best_start < 0 {
+        Result::Ok(Option::None)
+    } else {
+        Result::Ok(Option::Some(contiguous_match(source, best_start, count, best)))
+    }
 }
 
 impl Matcher {
@@ -254,6 +313,9 @@ impl Matcher {
         if pattern.kind == MatchKind::Prefix || pattern.kind == MatchKind::Suffix
             || pattern.kind == MatchKind::Exact {
             return anchored_match(pattern, source, ctx);
+        }
+        if pattern.kind == MatchKind::Substring {
+            return substring_match(pattern, source, ctx);
         }
         let parents = filled(rows * columns, -1);
         let mut previous = filled(columns, MISSING);

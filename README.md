@@ -68,13 +68,17 @@ queried concurrently.
 
 Options validate input byte/unit counts, pattern size, matrix cells and result
 count. The defaults are 1 MiB per string, 32,768 normalized candidate scalars,
-256 pattern scalars, 2,097,152 DP cells and 10,000 results. Matching uses O(MN)
-time and parent storage, plus two O(N) score rows. Top-K uses sorted insertion,
-with O(K) insertion cost. Sessions retain O(total candidate size) preprocessing.
+256 pattern scalars, 2,097,152 DP cells and 10,000 results. Fuzzy matching uses O(MN)
+time and parent storage, plus two O(N) score rows. Top-K uses a bounded heap,
+with O(log K) insertion cost. Sessions retain O(total candidate size) preprocessing.
 Matrix budget exhaustion is an error, never a silently degraded match.
 Prefix, suffix and exact matches evaluate their fixed alignment directly after
 the same feasibility and work-budget checks. They avoid the scoring matrix and
 retain only O(M) highlight metadata; scoring and byte/grapheme ranges are unchanged.
+Substring matching scans all overlapping occurrences using a pattern prefix
+table and a rolling boundary score in O(M + N) time and O(M) auxiliary space.
+It retains the highest score and earliest ending position on ties. The same
+normalized matrix-cell budget remains an admission check for every match mode.
 
 Cancellation/deadlines are checked before matching, each row, every 1,024 columns
 and between candidates. Segmentation and case folding of one bounded candidate
@@ -96,6 +100,10 @@ Anchored matching adds 3,810 fixed-position oracle comparisons and Unicode
 folding/grapheme cases. `goml test prepared_anchor_scaling --ignored --nocapture`
 runs an optional benchmark of prepared prefix and suffix matches; it has no
 timing assertions.
+Substring matching adds 1,270 comparisons against exhaustive matching windows,
+plus overlapping Unicode folds, path bonuses and score ties.
+`goml test prepared_substring_scaling --ignored --nocapture` measures repeated
+substring searches over prepared input without timing assertions.
 
 ## Development and examples
 

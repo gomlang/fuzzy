@@ -1,0 +1,118 @@
+package tests;
+
+use ecosystem::fuzzy;
+use std::context;
+use std::testing;
+use std::time;
+
+#[test]
+fn substring_scores_and_highlights_match_enumerated_windows() -> () {
+    let ctx = context::Context::background();
+    for length in 0..7 {
+        for bits in 0..(1 << length) {
+            let mut source = "";
+            for index in 0..length {
+                source += if bits & (1 << index) == 0 {
+                    "a"
+                } else {
+                    "b"
+                };
+            }
+            for query in["a", "b", "aa", "ab", "ba", "bb", "aba", "bab", "aaaa", "aaab"] {
+                let mut expected: Option[isize] = Option::None;
+                let mut best_start = 0;
+                if query.byte_len() <= source.byte_len() {
+                    for start in 0..(source.byte_len() - query.byte_len() + 1) {
+                        if source.byte_slice(start, start + query.byte_len()) != query {
+                            continue;
+                        }
+                        let chosen = Vec::new();
+                        for index in start..(start + query.byte_len()) {
+                            chosen.push(index);
+                        }
+                        let score = testing::expect_some(
+                            brute_score(query, source, query.byte_len(), 0, chosen),
+                            "window score",
+                        );
+                        if expected.is_none() || score > expected.unwrap_or(0) {
+                            expected = Option::Some(score);
+                            best_start = start;
+                        }
+                    }
+                }
+                let actual = testing::expect_ok(
+                    matcher().find_with(query, source, fuzzy::MatchKind::Substring, ctx),
+                    "substring match",
+                );
+                testing::assert(actual.map(|value| value.score) == expected);
+                if let Some(found) = actual {
+                    testing::assert(
+                        found.ranges
+                            == Vec::from_array(
+                                [
+                                    fuzzy::Range {
+                                        start: best_start,
+                                        end: best_start + query.byte_len(),
+                                    },
+                                ],
+                            ),
+                    );
+                    let chosen = Vec::new();
+                    for index in best_start..(best_start + query.byte_len()) {
+                        chosen.push(index);
+                    }
+                    testing::assert(found.graphemes == chosen);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn substring_overlap_boundaries_and_ties_keep_the_best_complete_graphemes() -> () {
+    let ctx = context::Context::background();
+    for (query, source, score, start, end, graphemes) in[
+        ("ab", "xabab/ab", 48, 6, 8, Vec::from_array([6, 7])),
+        ("x", "xa/xa", 27, 0, 1, Vec::from_array([0])),
+        ("ss", "xß/ss", 50, 4, 6, Vec::from_array([3, 4])),
+        ("ss", "ßß", 52, 0, 2, Vec::from_array([0])),
+        ("💻", "x👩‍💻x", 13, 1, 12, Vec::from_array([1])),
+    ] {
+        let found = testing::expect_some(
+            testing::expect_ok(
+                matcher().find_with(query, source, fuzzy::MatchKind::Substring, ctx),
+                "substring",
+            ),
+            "matching substring",
+        );
+        testing::assert_eq(found.score, score);
+        testing::assert(found.ranges == Vec::from_array([fuzzy::Range { start, end }]));
+        testing::assert(found.graphemes == graphemes);
+    }
+}
+
+#[test]
+#[ignore]
+fn prepared_substring_scaling() -> () {
+    let matcher = matcher();
+    let ctx = context::Context::background();
+    let candidate = testing::expect_ok(matcher.prepare("a".repeat(8192)), "candidate");
+    let pattern = testing::expect_ok(
+        matcher.pattern("a".repeat(256), fuzzy::MatchKind::Substring),
+        "pattern",
+    );
+    let started = time::Instant::now();
+    for _ in 0..10 {
+        let found = testing::expect_some(
+            testing::expect_ok(matcher.match_prepared(pattern, candidate, ctx), "match"),
+            "found",
+        );
+        testing::assert_eq(found.graphemes.len(), 256);
+        testing::assert_eq(found.ranges[0].start, 0);
+    }
+    println(
+        "Substring 256 x 8192, 10 prepared matches: "
+            + started.elapsed().as_nanoseconds().to_string()
+            + " ns",
+    );
+}
