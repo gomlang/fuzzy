@@ -50,6 +50,14 @@ fn boundary_bonus(previous: char, current: char, first: bool, paths: bool) -> is
     }
 }
 
+fn fold_case(value: string) -> string {
+    if value.is_ascii() {
+        value.to_ascii_lowercase()
+    } else {
+        unicode::case_fold(value)
+    }
+}
+
 fn insensitive(mode: CaseMode, pattern: string) -> bool {
     if mode == CaseMode::Sensitive {
         return false;
@@ -232,7 +240,7 @@ impl Matcher {
                 previous = ch;
             }
             first = true;
-            for ch in unicode::case_fold(cluster.text).chars() {
+            for ch in fold_case(cluster.text).chars() {
                 folded.push(
                     Unit {
                         value: ch,

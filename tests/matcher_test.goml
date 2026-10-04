@@ -135,6 +135,65 @@ fn unicode_folding_maps_expansions_to_original_graphemes() -> () {
 }
 
 #[test]
+fn folded_candidates_preserve_ascii_controls_and_mixed_grapheme_ranges() -> () {
+    let ctx = context::Context::background();
+    for mode in[fuzzy::CaseMode::Fold, fuzzy::CaseMode::Smart] {
+        let matcher = testing::expect_ok(
+            fuzzy::Matcher::new(fuzzy::Options { case_mode: mode, ..fuzzy::Options::new() }),
+            "folded matcher",
+        );
+        for (source, query, count) in[
+            ("A\u0000@\u007fZ", "a\u0000@\u007fz", 5),
+            ("[A`{Z", "[a`{z", 5),
+            ("A\r\nZ", "a\r\nz", 3),
+            ("A\u200d", "a\u200d", 1),
+            ("A\u0301", "a\u0301", 1),
+            ("İZ", "i\u0307z", 2),
+            ("ﬃA", "ffia", 2),
+            ("Aß", "ass", 2),
+            ("ßA", "ssa", 2),
+            ("ÉA", "éa", 2),
+            ("👩‍💻A", "👩‍💻a", 2),
+            ("A".repeat(128) + "ß", "a".repeat(128) + "ss", 129),
+        ] {
+            let direct = testing::expect_some(
+                testing::expect_ok(
+                    matcher.find_with(query, source, fuzzy::MatchKind::Exact, ctx),
+                    "direct folded match",
+                ),
+                "exact match",
+            );
+            let prepared = testing::expect_some(
+                testing::expect_ok(
+                    matcher.match_prepared(
+                        testing::expect_ok(
+                            matcher.pattern(query, fuzzy::MatchKind::Exact),
+                            "pattern",
+                        ),
+                        testing::expect_ok(matcher.prepare(source), "candidate"),
+                        ctx,
+                    ),
+                    "prepared folded match",
+                ),
+                "prepared exact match",
+            );
+            testing::assert_eq(prepared.score, direct.score);
+            testing::assert(prepared.ranges == direct.ranges);
+            testing::assert(prepared.graphemes == direct.graphemes);
+            testing::assert(
+                direct.ranges
+                    == Vec::from_array([fuzzy::Range { start: 0, end: source.byte_len() }]),
+            );
+            let indices = Vec::new();
+            for index in 0..count {
+                indices.push(index);
+            }
+            testing::assert(direct.graphemes == indices);
+        }
+    }
+}
+
+#[test]
 fn smart_case_and_explicit_case_modes() -> () {
     testing::assert(testing::expect_ok(matcher().find("Foo", "foo"), "smart").is_none());
     testing::assert(testing::expect_ok(matcher().find("foo", "FOO"), "smart").is_some());
