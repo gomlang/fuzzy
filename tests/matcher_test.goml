@@ -23,6 +23,105 @@ fn contiguous_matches_and_path_boundaries_rank_first() -> () {
 }
 
 #[test]
+fn boundary_rewards_preserve_character_categories_and_priority() -> () {
+    let ctx = context::Context::background();
+    for paths in[false, true] {
+        let matcher = testing::expect_ok(
+            fuzzy::Matcher::new(
+                fuzzy::Options {
+                    case_mode: fuzzy::CaseMode::Sensitive,
+                    path_bonus: paths,
+                    ..fuzzy::Options::new(),
+                },
+            ),
+            "boundary matcher",
+        );
+        for (previous, current, bonus) in[
+            (
+                "/",
+                "A",
+                if paths {
+                    14
+                } else {
+                    10
+                },
+            ),
+            (
+                "\\",
+                "A",
+                if paths {
+                    14
+                } else {
+                    10
+                },
+            ),
+            ("\u0000", "A", 10),
+            ("\u007f", "A", 10),
+            ("\u0080", "A", 10),
+            (" ", "A", 10),
+            ("_", "A", 10),
+            (":", "A", 10),
+            ("@", "A", 10),
+            ("[", "A", 10),
+            ("`", "A", 10),
+            ("{", "A", 10),
+            ("0", "A", 0),
+            ("9", "A", 0),
+            ("A", "Z", 0),
+            ("Z", "A", 0),
+            ("a", "A", 8),
+            ("z", "Z", 8),
+            ("a", "@", 0),
+            ("a", "[", 0),
+            ("a", "`", 0),
+            ("a", "{", 0),
+            ("a", "z", 0),
+            ("a", "\u0080", 0),
+            ("é", "A", 8),
+            ("a", "É", 8),
+            ("σ", "Σ", 8),
+            ("a", "ǅ", 0),
+            ("ǅ", "A", 0),
+            ("ʰ", "A", 0),
+            ("١", "A", 0),
+            ("²", "A", 0),
+            ("ⅰ", "A", 0),
+            ("a", "Ⅰ", 0),
+            ("a", "Ⓐ", 0),
+            ("ⓐ", "A", 10),
+            ("😀", "A", 10),
+        ] {
+            let source = previous + current;
+            let matched = testing::expect_some(
+                testing::expect_ok(
+                    matcher.find_with(current, source, fuzzy::MatchKind::Suffix, ctx),
+                    "boundary match",
+                ),
+                "suffix found",
+            );
+            testing::assert_eq(matched.score, 15 + bonus);
+            testing::assert(
+                matched.ranges
+                    == Vec::from_array(
+                        [fuzzy::Range { start: previous.byte_len(), end: source.byte_len() }],
+                    ),
+            );
+            testing::assert(matched.graphemes == Vec::from_array([1]));
+        }
+        for value in["/", "\\", "A", "a", "0", "é", "Ⅰ", "😀"] {
+            let matched = testing::expect_some(
+                testing::expect_ok(
+                    matcher.find_with(value, value, fuzzy::MatchKind::Exact, ctx),
+                    "first scalar",
+                ),
+                "exact found",
+            );
+            testing::assert_eq(matched.score, 28);
+        }
+    }
+}
+
+#[test]
 fn unicode_folding_maps_expansions_to_original_graphemes() -> () {
     let result = found("strasse", "Straße");
     testing::assert(result.ranges == Vec::from_array([fuzzy::Range { start: 0, end: 7 }]));

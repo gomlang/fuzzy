@@ -45,6 +45,8 @@ standard library's Unicode version.
 The dynamic program finds the maximum-score subsequence. Each matched scalar
 earns 16 points, with 12 at the input start, 14 after a path separator when enabled,
 10 after other non-alphanumeric scalars, or 8 at a lowercase-to-uppercase boundary.
+These alternatives are checked in that order. Alphanumeric means Unicode
+categories `L` or `N`; lowercase and uppercase use `Ll` and `Lu` respectively.
 Consecutive matches gain 8. Leading skipped scalars cost 1 each; internal gaps
 cost 3 plus their length; trailing skips cost their length divided by four.
 Boundary rewards are applied once per original grapheme. Equal scores prefer the

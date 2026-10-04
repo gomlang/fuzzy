@@ -15,13 +15,36 @@ fn first_scalar(value: string) -> char {
 
 fn boundary_bonus(previous: char, current: char, first: bool, paths: bool) -> isize {
     if first {
-        12
-    } else if paths && (previous == '/' || previous == '\\') {
-        14
-    } else if !unicode::is_letter(previous) && !unicode::is_number(previous) {
-        10
-    } else if unicode::is_lowercase(previous) && unicode::is_uppercase(current) {
-        8
+        return 12;
+    }
+    if paths && (previous == '/' || previous == '\\') {
+        return 14;
+    }
+    let alphanumeric = if previous < '\u0080' {
+        (previous >= 'A' && previous <= 'Z') || (previous >= 'a' && previous <= 'z')
+            || (previous >= '0' && previous <= '9')
+    } else {
+        unicode::is_letter(previous) || unicode::is_number(previous)
+    };
+    if !alphanumeric {
+        return 10;
+    }
+    let lowercase = if previous < '\u0080' {
+        previous >= 'a' && previous <= 'z'
+    } else {
+        unicode::is_lowercase(previous)
+    };
+    if lowercase {
+        let uppercase = if current < '\u0080' {
+            current >= 'A' && current <= 'Z'
+        } else {
+            unicode::is_uppercase(current)
+        };
+        if uppercase {
+            8
+        } else {
+            0
+        }
     } else {
         0
     }
