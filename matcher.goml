@@ -33,7 +33,12 @@ fn insensitive(mode: CaseMode, pattern: string) -> bool {
     }
     if mode == CaseMode::Smart {
         for ch in pattern.chars() {
-            if unicode::is_uppercase(ch) {
+            let uppercase = if ch < '\u0080' {
+                ch >= 'A' && ch <= 'Z'
+            } else {
+                unicode::is_uppercase(ch)
+            };
+            if uppercase {
                 return false;
             }
         }

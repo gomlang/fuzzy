@@ -56,6 +56,40 @@ fn smart_case_and_explicit_case_modes() -> () {
 }
 
 #[test]
+fn smart_case_uses_ascii_boundaries_and_unicode_uppercase_letters() -> () {
+    let matcher = matcher();
+    let ctx = context::Context::background();
+    for (query, source, matches) in[
+        ("aA", "aa", false),
+        ("Za", "za", false),
+        ("aZ", "az", false),
+        ("@a", "@A", true),
+        ("[a", "[A", true),
+        ("`a", "`A", true),
+        ("{a", "{A", true),
+        ("\u0000a", "\u0000A", true),
+        ("\u007fa", "\u007fA", true),
+        ("\u0080a", "\u0080A", true),
+        ("aÉ", "aé", false),
+        ("éa", "ÉA", true),
+        ("aΣ", "aσ", false),
+        ("aİ", "ai\u0307", false),
+        ("ai\u0307", "aİ", true),
+        ("aǅ", "aǆ", true),
+        ("aⅠ", "aⅰ", true),
+        ("aⒶ", "aⓐ", true),
+    ] {
+        testing::assert_eq(
+            testing::expect_ok(
+                matcher.find_with(query, source, fuzzy::MatchKind::Exact, ctx),
+                "smart case",
+            ).is_some(),
+            matches,
+        );
+    }
+}
+
+#[test]
 fn contiguous_kinds_enforce_both_anchors() -> () {
     let ctx = context::Context::background();
     let cases = Vec::from_array(

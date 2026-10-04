@@ -30,7 +30,9 @@ and the normalized pattern unit count before any empty/impossible-match shortcut
 Reprepare the candidate or pattern when changing its relevant matching policy.
 
 `CaseMode::Sensitive` compares original scalars; `Fold` uses standard Unicode
-full case folding; `Smart` folds unless the pattern contains an uppercase scalar.
+full case folding; `Smart` folds unless the pattern contains an uppercase letter
+(Unicode category `Lu`). Titlecase letters and other uppercase symbols do not
+switch Smart mode to sensitive matching.
 An expansion such as `ß` to `ss` retains its original grapheme location. Returned
 `Match.ranges` are merged half-open UTF-8 byte ranges covering complete extended
 graphemes; `graphemes` contains unique zero-based grapheme indices. Combining marks
