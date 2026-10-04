@@ -1,0 +1,114 @@
+package tests;
+
+use ecosystem::fuzzy;
+use std::context;
+use std::testing;
+use std::time;
+
+#[test]
+fn anchored_scores_and_highlights_match_fixed_position_oracle() -> () {
+    let ctx = context::Context::background();
+    for length in 0..7 {
+        for bits in 0..(1 << length) {
+            let mut source = "";
+            for index in 0..length {
+                source += if bits & (1 << index) == 0 {
+                    "a"
+                } else {
+                    "b"
+                };
+            }
+            for query in["", "a", "b", "aa", "ab", "ba", "bb", "aba", "bab", "aaaa"] {
+                for kind in[
+                    fuzzy::MatchKind::Prefix,
+                    fuzzy::MatchKind::Suffix,
+                    fuzzy::MatchKind::Exact,
+                ] {
+                    let valid = match kind {
+                        Prefix => source.starts_with(query),
+                        Suffix => source.ends_with(query),
+                        _ => source == query,
+                    };
+                    let start = if kind == fuzzy::MatchKind::Suffix {
+                        source.byte_len() - query.byte_len()
+                    } else {
+                        0
+                    };
+                    let chosen = Vec::new();
+                    if valid {
+                        for index in start..(start + query.byte_len()) {
+                            chosen.push(index);
+                        }
+                    }
+                    let expected = if valid {
+                        brute_score(query, source, query.byte_len(), 0, chosen)
+                    } else {
+                        Option::None
+                    };
+                    let actual = testing::expect_ok(
+                        matcher().find_with(query, source, kind, ctx),
+                        "anchored match",
+                    );
+                    testing::assert(actual.map(|value| value.score) == expected);
+                    if let Some(found) = actual {
+                        testing::assert(found.graphemes == chosen);
+                        let ranges = if query == "" {
+                            Vec::new()
+                        } else {
+                            Vec::from_array([fuzzy::Range { start, end: start + query.byte_len() }])
+                        };
+                        testing::assert(found.ranges == ranges);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn anchored_folding_keeps_complete_original_graphemes() -> () {
+    let ctx = context::Context::background();
+    for (query, source, kind, score, start, end, graphemes) in[
+        ("ss", "ßx", fuzzy::MatchKind::Prefix, 52, 0, 2, Vec::from_array([0])),
+        ("s", "xß", fuzzy::MatchKind::Suffix, 14, 1, 3, Vec::from_array([1])),
+        ("ss", "ß", fuzzy::MatchKind::Exact, 52, 0, 2, Vec::from_array([0])),
+        ("e", "e\u0301x", fuzzy::MatchKind::Prefix, 28, 0, 3, Vec::from_array([0])),
+        ("💻", "x👩‍💻", fuzzy::MatchKind::Suffix, 13, 1, 12, Vec::from_array([1])),
+        ("file", "src/file", fuzzy::MatchKind::Suffix, 98, 4, 8, Vec::from_array([4, 5, 6, 7])),
+    ] {
+        let found = testing::expect_some(
+            testing::expect_ok(
+                matcher().find_with(query, source, kind, ctx),
+                "Unicode anchored match",
+            ),
+            "matching anchor",
+        );
+        testing::assert_eq(found.score, score);
+        testing::assert(found.ranges == Vec::from_array([fuzzy::Range { start, end }]));
+        testing::assert(found.graphemes == graphemes);
+    }
+}
+
+#[test]
+#[ignore]
+fn prepared_anchor_scaling() -> () {
+    let matcher = matcher();
+    let ctx = context::Context::background();
+    let candidate = testing::expect_ok(matcher.prepare("a".repeat(8192)), "candidate");
+    for kind in[fuzzy::MatchKind::Prefix, fuzzy::MatchKind::Suffix] {
+        let pattern = testing::expect_ok(matcher.pattern("a".repeat(256), kind), "pattern");
+        let started = time::Instant::now();
+        for _ in 0..10 {
+            let found = testing::expect_some(
+                testing::expect_ok(matcher.match_prepared(pattern, candidate, ctx), "match"),
+                "found",
+            );
+            testing::assert_eq(found.graphemes.len(), 256);
+        }
+        println(
+            kind.debug() + " 256 x 8192, 10 prepared matches: "
+                + started.elapsed().as_nanoseconds().to_string()
+                + " ns",
+        );
+    }
+}

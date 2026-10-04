@@ -72,6 +72,9 @@ count. The defaults are 1 MiB per string, 32,768 normalized candidate scalars,
 time and parent storage, plus two O(N) score rows. Top-K uses sorted insertion,
 with O(K) insertion cost. Sessions retain O(total candidate size) preprocessing.
 Matrix budget exhaustion is an error, never a silently degraded match.
+Prefix, suffix and exact matches evaluate their fixed alignment directly after
+the same feasibility and work-budget checks. They avoid the scoring matrix and
+retain only O(M) highlight metadata; scoring and byte/grapheme ranges are unchanged.
 
 Cancellation/deadlines are checked before matching, each row, every 1,024 columns
 and between candidates. Segmentation and case folding of one bounded candidate
@@ -89,6 +92,10 @@ cross-matcher preparation compatibility and budget validation,
 parallel equivalence, and 1,270 exhaustive short-input comparisons against an
 independent recursive subsequence enumerator. The example demonstrates file
 search and query refinement. No Python or native adapter is required.
+Anchored matching adds 3,810 fixed-position oracle comparisons and Unicode
+folding/grapheme cases. `goml test prepared_anchor_scaling --ignored --nocapture`
+runs an optional benchmark of prepared prefix and suffix matches; it has no
+timing assertions.
 
 ## Development and examples
 

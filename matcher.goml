@@ -49,6 +49,48 @@ fn filled(size: isize, value: isize) -> Vec[isize] {
     output
 }
 
+fn anchored_match(pattern: Pattern, source: Vec[Unit], ctx: context::Context) -> Result[
+    Option[Match],
+    Error,
+] {
+    let count = pattern.units.len();
+    let start = if pattern.kind == MatchKind::Suffix {
+        source.len() - count
+    } else {
+        0
+    };
+    let mut score = -start - (source.len() - start - count) / 4;
+    let graphemes = Vec::new();
+    for row in 0..count {
+        if row % 1024 == 0 {
+            check_context(ctx)?;
+        }
+        let unit = source[start + row];
+        if pattern.units[row] != unit.value {
+            return Result::Ok(Option::None);
+        }
+        score += 16 + unit.bonus;
+        if row > 0 {
+            score += 8;
+        }
+        if graphemes.last() != Option::Some(unit.grapheme) {
+            graphemes.push(unit.grapheme);
+        }
+    }
+    check_context(ctx)?;
+    Result::Ok(
+        Option::Some(
+            Match {
+                score,
+                ranges: Vec::from_array(
+                    [Range { start: source[start].start, end: source[start + count - 1].end }],
+                ),
+                graphemes,
+            },
+        ),
+    )
+}
+
 impl Matcher {
     pub fn new(options: Options) -> Result[Matcher, Error] {
         if options.max_bytes < 1 || options.max_bytes > 16777216 || options.max_units < 1
@@ -208,6 +250,10 @@ impl Matcher {
         }
         if columns > self.options.max_cells / rows {
             return Result::Err(Error::WorkLimit);
+        }
+        if pattern.kind == MatchKind::Prefix || pattern.kind == MatchKind::Suffix
+            || pattern.kind == MatchKind::Exact {
+            return anchored_match(pattern, source, ctx);
         }
         let parents = filled(rows * columns, -1);
         let mut previous = filled(columns, MISSING);

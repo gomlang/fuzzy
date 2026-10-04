@@ -31,3 +31,18 @@ fn public_topk_returns_stable_score_order() -> () {
     testing::assert_eq(result.hits[0].index, 1);
     testing::assert_eq(result.hits[1].index, 2);
 }
+
+#[test]
+fn anchored_matches_preserve_folded_grapheme_highlights() -> () {
+    let matcher = testing::expect_ok(fuzzy::Matcher::new(fuzzy::Options::new()), "matcher");
+    let found = testing::expect_some(
+        testing::expect_ok(
+            matcher.find_with("ss", "ßx", fuzzy::MatchKind::Prefix, context::Context::background()),
+            "folded prefix",
+        ),
+        "matching prefix",
+    );
+    testing::assert_eq(found.score, 52);
+    testing::assert(found.ranges == Vec::from_array([fuzzy::Range { start: 0, end: 2 }]));
+    testing::assert(found.graphemes == Vec::from_array([0]));
+}
