@@ -68,6 +68,49 @@ fn ranked(hits: Vec[Hit]) -> Vec[Hit] {
 }
 
 impl Matcher {
+    // Collection inputs are prepared by this matcher, so their limits and
+    // preparation options have already been checked.
+    fn count_fuzzy_match(
+        self: Matcher,
+        pattern: Pattern,
+        candidate: Candidate,
+        ctx: context::Context,
+    ) -> Result[bool, Error] {
+        check_context(ctx)?;
+        let source = if pattern.sensitive {
+            candidate.sensitive
+        } else {
+            candidate.folded
+        };
+        let rows = pattern.units.len();
+        let columns = source.len();
+        if rows == 0 {
+            return Result::Ok(true);
+        }
+        if rows > columns {
+            return Result::Ok(false);
+        }
+        let mut matched_units = 0;
+        for column in 0..columns {
+            if column % 1024 == 0 {
+                check_context(ctx)?;
+            }
+            if pattern.units[matched_units] == source[column].value {
+                matched_units += 1;
+                if matched_units == rows {
+                    break;
+                }
+            }
+        }
+        if matched_units != rows {
+            return Result::Ok(false);
+        }
+        if columns > self.options.max_cells / rows {
+            return Result::Err(Error::WorkLimit);
+        }
+        Result::Ok(true)
+    }
+
     pub fn search(
         self: Matcher,
         query: string,
@@ -140,7 +183,11 @@ impl Matcher {
                                 while index < inputs.len() {
                                     check_context(ctx)?;
                                     let candidate = self.prepare(inputs[index])?;
-                                    if let Some(matched) = self.match_prepared(
+                                    if limit == 0 && kind == MatchKind::Fuzzy {
+                                        if self.count_fuzzy_match(pattern, candidate, ctx)? {
+                                            total += 1;
+                                        }
+                                    } else if let Some(matched) = self.match_prepared(
                                         pattern,
                                         candidate,
                                         ctx,
@@ -252,7 +299,11 @@ impl Session {
         let hits = Vec::new();
         for index in indices {
             let candidate = self.candidates[index];
-            if let Some(matched) = self.matcher.match_prepared(pattern, candidate, ctx)? {
+            if limit == 0 && kind == MatchKind::Fuzzy {
+                if self.matcher.count_fuzzy_match(pattern, candidate, ctx)? {
+                    eligible.push(index);
+                }
+            } else if let Some(matched) = self.matcher.match_prepared(pattern, candidate, ctx)? {
                 eligible.push(index);
                 retain(hits, Hit { index, text: candidate.value, matched }, limit);
             }

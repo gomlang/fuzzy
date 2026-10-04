@@ -87,3 +87,73 @@ fn incremental_and_empty_query_heaps_preserve_stable_ties() -> () {
         0,
     );
 }
+
+#[test]
+fn zero_limit_sessions_preserve_later_scores_and_eligibility() -> () {
+    let ctx = context::Context::background();
+    let values = Vec::from_array(
+        ["", "ss", "SS", "ß", "strasse", "Straße", "src/main.goml", "s", "界SS"],
+    );
+    for case_mode in[fuzzy::CaseMode::Sensitive, fuzzy::CaseMode::Fold, fuzzy::CaseMode::Smart] {
+        let matcher = testing::expect_ok(
+            fuzzy::Matcher::new(fuzzy::Options { case_mode, ..fuzzy::Options::new() }),
+            "matcher",
+        );
+        let mut counted = testing::expect_ok(fuzzy::Session::new(matcher, values), "count session");
+        let mut scored = testing::expect_ok(fuzzy::Session::new(matcher, values), "score session");
+        for query in["", "s", "ss", "SS", "str", "strasse", "S", "x", ""] {
+            let (next_counted, count) = testing::expect_ok(counted.update(query, 0, ctx), "count");
+            let (next_scored, expected) = testing::expect_ok(scored.update(query, 3, ctx), "scores");
+            testing::assert_eq(count.total, expected.total);
+            testing::assert_eq(count.scanned, expected.scanned);
+            testing::assert_eq(count.hits.len(), 0);
+            let (_, actual) = testing::expect_ok(next_counted.update(query, 3, ctx), "later scores");
+            testing::assert_eq(actual.total, expected.total);
+            testing::assert_eq(actual.hits.len(), expected.hits.len());
+            for index in 0..actual.hits.len() {
+                testing::assert_eq(actual.hits[index].index, expected.hits[index].index);
+                testing::assert_eq(
+                    actual.hits[index].matched.score,
+                    expected.hits[index].matched.score,
+                );
+                testing::assert(
+                    actual.hits[index].matched.ranges == expected.hits[index].matched.ranges,
+                );
+                testing::assert(
+                    actual.hits[index].matched.graphemes == expected.hits[index].matched.graphemes,
+                );
+            }
+            counted = next_counted;
+            scored = next_scored;
+        }
+    }
+}
+
+#[test]
+fn zero_limit_counts_keep_work_limits_and_failed_session_reuse() -> () {
+    let matcher = testing::expect_ok(
+        fuzzy::Matcher::new(fuzzy::Options { max_cells: 4, ..fuzzy::Options::new() }),
+        "matcher",
+    );
+    let ctx = context::Context::background();
+    let values = Vec::from_array(["ab", "axb", "zz"]);
+    let session = testing::expect_ok(fuzzy::Session::new(matcher, values), "session");
+    testing::assert_eq(testing::expect_ok(session.update("az", 0, ctx), "impossible").1.total, 0);
+    testing::assert_eq(
+        testing::expect_err(session.update("ab", 0, ctx), "feasible over budget"),
+        fuzzy::Error::WorkLimit,
+    );
+    for result in[
+        matcher.search("ab", values, 0, ctx),
+        matcher.search_parallel("ab", values, 0, 4, ctx),
+    ] {
+        testing::assert_eq(
+            testing::expect_err(result, "collection budget"),
+            fuzzy::Error::WorkLimit,
+        );
+    }
+    let (_, report) = testing::expect_ok(session.update("a", 0, ctx), "reuse");
+    testing::assert_eq(report.total, 2);
+    testing::assert_eq(report.scanned, 3);
+    testing::assert_eq(report.hits.len(), 0);
+}

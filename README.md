@@ -148,6 +148,9 @@ O(log K) work instead of shifting O(K) entries. Only the final retained hits are
 sorted, in O(K log K), by descending score then original candidate index. Equal
 scores therefore keep stable input order. Zero-limit searches still count all
 matches without retaining hits; limits above the corpus size return every match.
+Zero-limit fuzzy searches use the subsequence feasibility scan without computing
+scores or highlights, while keeping the same rectangular work-budget checks.
+Sessions still retain all matching candidate indices for later scored queries.
 Parallel workers use the same bounded policy and their merge preserves serial
 ordering. The change does not alter scoring or corpus preparation limits.
 
