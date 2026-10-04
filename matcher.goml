@@ -229,7 +229,8 @@ impl Matcher {
     }
 
     pub fn pattern(self: Matcher, value: string, kind: MatchKind) -> Result[Pattern, Error] {
-        if value.byte_len() > self.options.max_bytes {
+        if value.byte_len() > self.options.max_bytes
+            || value.byte_len() > 4 * self.options.max_pattern_units {
             return Result::Err(Error::PatternLimit);
         }
         let sensitive = !insensitive(self.options.case_mode, value);

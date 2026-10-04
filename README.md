@@ -83,6 +83,9 @@ Preparation rejects an excessive original scalar count before allocating graphem
 segmentation or candidate units. The preflight uses constant auxiliary space and
 stops at the first excess scalar; case-folded expansions are still checked while
 building the prepared candidate.
+A query longer than four times `max_pattern_units` in UTF-8 bytes cannot fit the
+scalar budget, so it is rejected before case folding. Full case folding never
+removes scalars; folded expansions still count toward the pattern unit limit.
 Matrix budget exhaustion is an error, never a silently degraded match.
 Prefix, suffix and exact matches evaluate their fixed alignment directly after
 the same feasibility and work-budget checks. They avoid the scoring matrix and

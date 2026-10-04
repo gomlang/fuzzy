@@ -169,6 +169,57 @@ fn work_input_and_output_budgets_are_explicit_errors() -> () {
 }
 
 #[test]
+fn pattern_limits_count_normalized_scalars_at_utf8_byte_boundaries() -> () {
+    for (value, limit, sensitive_ok, fold_ok, smart_ok) in[
+        ("", 1, true, true, true),
+        ("a".repeat(5), 4, false, false, false),
+        ("a".repeat(17), 4, false, false, false),
+        ("😀".repeat(4), 4, true, true, true),
+        ("😀".repeat(4) + "a", 4, false, false, false),
+        ("😀".repeat(3) + "abcd", 4, false, false, false),
+        ("中".repeat(4), 4, true, true, true),
+        ("e\u0301", 2, true, true, true),
+        ("e\u0301", 1, false, false, false),
+        ("ß", 1, true, false, false),
+        ("ß", 2, true, true, true),
+        ("İ", 1, true, false, true),
+        ("ﬃ", 2, true, false, false),
+        ("ﬃ", 3, true, true, true),
+    ] {
+        for case_mode in[fuzzy::CaseMode::Sensitive, fuzzy::CaseMode::Fold, fuzzy::CaseMode::Smart] {
+            let matcher = testing::expect_ok(
+                fuzzy::Matcher::new(
+                    fuzzy::Options { case_mode, max_pattern_units: limit, ..fuzzy::Options::new() },
+                ),
+                "pattern budget",
+            );
+            let accepted = match case_mode {
+                Sensitive => sensitive_ok,
+                Fold => fold_ok,
+                Smart => smart_ok,
+            };
+            for kind in[
+                fuzzy::MatchKind::Fuzzy,
+                fuzzy::MatchKind::Substring,
+                fuzzy::MatchKind::Prefix,
+                fuzzy::MatchKind::Suffix,
+                fuzzy::MatchKind::Exact,
+            ] {
+                let result = matcher.pattern(value, kind);
+                if accepted {
+                    testing::assert_ok(result);
+                } else {
+                    testing::assert_eq(
+                        testing::expect_err(result, "normalized pattern limit"),
+                        fuzzy::Error::PatternLimit,
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn preparation_limits_scalars_without_counting_bytes_or_graphemes_as_units() -> () {
     for (value, limit, accepted) in[
         ("😀", 1, true),
