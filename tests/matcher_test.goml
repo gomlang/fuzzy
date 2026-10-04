@@ -524,6 +524,57 @@ fn parallel_search_matches_serial_scores_indices_and_highlights() -> () {
 }
 
 #[test]
+fn parallel_search_preserves_small_and_empty_collection_results() -> () {
+    let ctx = context::Context::background();
+    let matcher = matcher();
+    for (values, expected) in[
+        (Vec::new(), 0),
+        (Vec::from_array(["ab"]), 1),
+        (Vec::from_array(["ab", "ba", "ab"]), 2),
+    ] {
+        for limit in[0, 2] {
+            for workers in[1, 8, 256] {
+                let report = testing::expect_ok(
+                    matcher.search_parallel("ab", values, limit, workers, ctx),
+                    "small parallel search",
+                );
+                testing::assert_eq(report.scanned, values.len());
+                testing::assert_eq(report.total, expected);
+                testing::assert_eq(
+                    report.hits.len(),
+                    if limit < expected {
+                        limit
+                    } else {
+                        expected
+                    },
+                );
+                for index in 0..report.hits.len() {
+                    testing::assert_eq(report.hits[index].index, index * 2);
+                    testing::assert_eq(report.hits[index].matched.score, 52);
+                    testing::assert(
+                        report.hits[index].matched.ranges
+                            == Vec::from_array([fuzzy::Range { start: 0, end: 2 }]),
+                    );
+                    testing::assert(report.hits[index].matched.graphemes == Vec::from_array([0, 1]));
+                }
+            }
+        }
+    }
+    let limited = testing::expect_ok(
+        fuzzy::Matcher::new(fuzzy::Options { max_pattern_units: 1, ..fuzzy::Options::new() }),
+        "limited matcher",
+    );
+    testing::assert_eq(
+        testing::expect_err(limited.search_parallel("ab", Vec::new(), 0, 256, ctx), "pattern limit"),
+        fuzzy::Error::PatternLimit,
+    );
+    testing::assert_eq(
+        testing::expect_err(limited.search_parallel("ab", Vec::new(), 0, 0, ctx), "worker limit"),
+        fuzzy::Error::InvalidLimit,
+    );
+}
+
+#[test]
 fn cancellation_and_expired_deadlines_propagate_without_leaking_tasks() -> () {
     let before = std::task::active_scope_count();
     context::with_cancel(

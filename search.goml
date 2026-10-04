@@ -121,6 +121,11 @@ impl Matcher {
         check_context(ctx)?;
         let pattern = self.pattern(query, kind)?;
         let inputs = values.copy();
+        let workers = if workers < inputs.len() {
+            workers
+        } else {
+            inputs.len()
+        };
         task::scope(
             |scope| {
                 let tasks: Vec[task::Task[Result[Report, Error]]] = Vec::new();

@@ -58,7 +58,8 @@ earliest final position, and stable candidate ties preserve input order.
 count and scanned count. Limit zero still counts all matches. Parallel workers
 produce the same ranking, indices, scores and highlights as serial execution.
 Input vectors are copied before parallel work; callers must not concurrently
-mutate a vector while the copy is being taken. There are at most 256 workers.
+mutate a vector while the copy is being taken. The requested worker limit must be
+between 1 and 256; a search starts no more workers than it has candidates.
 
 `Session::new(matcher, values)` caches candidate preprocessing. `update(query,
 limit, context)` returns `(next_session, report)`; old sessions remain usable.
