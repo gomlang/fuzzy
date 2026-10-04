@@ -169,6 +169,39 @@ fn work_input_and_output_budgets_are_explicit_errors() -> () {
 }
 
 #[test]
+fn preparation_limits_scalars_without_counting_bytes_or_graphemes_as_units() -> () {
+    for (value, limit, accepted) in[
+        ("😀", 1, true),
+        ("😀😀", 1, false),
+        ("e\u0301", 2, true),
+        ("e\u0301", 1, false),
+        ("ß", 1, false),
+        ("ß", 2, true),
+        ("👩‍💻", 3, true),
+        ("👩‍💻", 2, false),
+        ("a".repeat(65), 16, false),
+    ] {
+        for case_mode in[fuzzy::CaseMode::Sensitive, fuzzy::CaseMode::Fold, fuzzy::CaseMode::Smart] {
+            let matcher = testing::expect_ok(
+                fuzzy::Matcher::new(
+                    fuzzy::Options { max_units: limit, case_mode, ..fuzzy::Options::new() },
+                ),
+                "unit budget",
+            );
+            let prepared = matcher.prepare(value);
+            if accepted {
+                testing::assert_eq(testing::expect_ok(prepared, "accepted units").text(), value);
+            } else {
+                testing::assert_eq(
+                    testing::expect_err(prepared, "too many units"),
+                    fuzzy::Error::InputLimit,
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn top_k_counts_all_matches_and_breaks_ties_by_input_order() -> () {
     let values = Vec::from_array(["abc", "abc", "a_b_c", "none", "xabc"]);
     let report = testing::expect_ok(

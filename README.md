@@ -76,6 +76,10 @@ time and parent storage, plus two O(N) score rows. Parent indices use four bytes
 per cell: the supported maximum of 1,048,576 candidate units fits in a signed
 32-bit index. Scores retain their full integer width. Top-K uses a bounded heap,
 with O(log K) insertion cost. Sessions retain O(total candidate size) preprocessing.
+Preparation rejects an excessive original scalar count before allocating grapheme
+segmentation or candidate units. The preflight uses constant auxiliary space and
+stops at the first excess scalar; case-folded expansions are still checked while
+building the prepared candidate.
 Matrix budget exhaustion is an error, never a silently degraded match.
 Prefix, suffix and exact matches evaluate their fixed alignment directly after
 the same feasibility and work-budget checks. They avoid the scoring matrix and

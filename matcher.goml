@@ -169,6 +169,15 @@ impl Matcher {
         if value.byte_len() > self.options.max_bytes {
             return Result::Err(Error::InputLimit);
         }
+        if value.byte_len() > self.options.max_units {
+            let mut remaining = self.options.max_units;
+            for _ in value.chars() {
+                if remaining == 0 {
+                    return Result::Err(Error::InputLimit);
+                }
+                remaining -= 1;
+            }
+        }
         let sensitive = Vec::new();
         let folded = Vec::new();
         let mut previous = '\u0000';
