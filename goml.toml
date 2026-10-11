@@ -2,4 +2,4 @@
 path = "ecosystem::fuzzy"
 
 [dependencies]
-"ecosystem::unicode_text" = "0.1.0"
+"ecosystem::unicode_text" = true
