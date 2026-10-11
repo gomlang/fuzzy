@@ -109,7 +109,7 @@ the previous session. The scoped parallel search joins every worker on failure.
 
 ## Validation
 
-`(cd ../verification && just ecosystem-test fuzzy)` checks the library and example, repeated builds
+`(cd ../workflows && just ecosystem-test fuzzy)` checks the library and example, repeated builds
 and race detection. Native tests cover scores, anchors, Unicode expansions and
 graphemes, all budgets, stable Top-K, persistent incremental search, cancellation,
 cross-matcher preparation compatibility and budget validation,
@@ -127,15 +127,15 @@ substring searches over prepared input without timing assertions.
 
 ## Development and examples
 
-Requires the [current GoML toolchain](https://github.com/gomlang/verification/blob/main/ci/toolchain.json) with unversioned registry support. The `examples/basic/` example shares the root manifest. From the library root, run:
+Requires the [current GoML toolchain](https://github.com/gomlang/workflows/blob/main/ci/toolchain.json) with unversioned registry support. The `examples/basic/` example shares the root manifest. From the library root, run:
 
 ```sh
 goml run --example basic
 goml test
-(cd ../verification && just ecosystem-test fuzzy)
+(cd ../workflows && just ecosystem-test fuzzy)
 ```
 
-`goml test` builds the example and runs its tests. `(cd ../verification && just ecosystem-test fuzzy)` runs the library-specific smoke and compatibility checks.
+`goml test` builds the example and runs its tests. `(cd ../workflows && just ecosystem-test fuzzy)` runs the library-specific smoke and compatibility checks.
 
 Before allocating its scoring matrix, matching performs a linear subsequence
 feasibility scan over the prepared case-sensitive or folded units. Impossible
